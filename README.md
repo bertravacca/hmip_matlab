@@ -1,2 +1,2 @@
 # hmip_matlab
-Hopfield methods for constrained mixed integer problems
+Solver using Hopfield methods for constrained mixed integer problems
