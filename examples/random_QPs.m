@@ -30,10 +30,10 @@ ub=1;
 % use hmip solver
 objective=@(x) 0.5*x'*Q*x+q'*x;
 gradient=@(x) Q*x+q;
-problem=problemHMIP('objective',objective,'gradient',gradient,'size',n,'binary_index',[1;0],'lb',lb,'ub',ub);
-options=OptionsHMIP('num_iterations_max',300,'keep_hopfield_trajectory',1,'activation_type','pwl','direction_method','binary');
+problem=problemHMIP('objective',objective,'gradient',gradient,'size',n,'binary_index',binary_indicator,'lb',lb,'ub',ub);
+options=OptionsHMIP('num_iterations_max',1000,'keep_hopfield_trajectory',1,'activation_type','pwl','direction_method','gradient');
 solver=solverHMIP('problem',problem,'options',options);
-[x_h,x]=solver.main_hopfield;
+[x_h,x,fval,solver]=solver.main_hopfield;
 %x=quadprog(Q,q,A,b,Aeq,beq,zeros(n,1),ones(n,1));
 
 

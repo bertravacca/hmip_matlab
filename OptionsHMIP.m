@@ -5,8 +5,8 @@ classdef OptionsHMIP
         direction_method='gradient'
         activation_type='sin'
         beta
-        theta=pi/2-0.01
-        gamma=0.95
+        theta=pi/2-0.1
+        gamma=0.9
         num_iterations_max=1000
         stopping_criterion
         precision_stopping_criterion

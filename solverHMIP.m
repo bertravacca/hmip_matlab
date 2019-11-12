@@ -4,8 +4,7 @@ classdef solverHMIP
         funcs
         problem
         visualize
-        x
-        x_h
+        performance
     end
     
     methods
@@ -57,11 +56,20 @@ classdef solverHMIP
             if strcmp(self.options.initial_ascent_method,'none')==0 && isempty(self.options.initial_ascent_stop_val)
                 self.options.initial_ascent_stop_val=(self.problem.ub-self.problem.lb)/10^2;
             end
-                       
+            
+            if length(self.problem.lb)==1
+                self.problem.lb=self.problem.lb*ones(self.problem.size,1);
+            end
+            
+            if length(self.problem.ub)==1
+                self.problem.ub=self.problem.ub*ones(self.problem.size,1);
+            end
+            
+            self.performance=struct('binary_cv',0);
         end
         
         % main hopfield update
-        function [x_h,x]=main_hopfield(self)
+        function [x_h,x,fval,self]=main_hopfield(self)
             if self.options.keep_hopfield_trajectory==0
                 iter=1;
                 x=self.initialization;
@@ -80,12 +88,16 @@ classdef solverHMIP
                         x=self.projected_gradient_update(x,direction,self.problem.step_size_smoothness);
                     end
                     iter=iter+1;
-                end    
+                end
+                self=binary_cv(self,x);
+                fval=self.problem.objective(x);
             elseif self.options.keep_hopfield_trajectory==1
                 iter=1;
                 x=[self.initialization,NaN*zeros(self.problem.size,self.options.num_iterations_max-1)];
                 x_previous=x(:,1)+1;
                 x_h=[self.funcs.inverse_activation(x,self.problem.lb,self.problem.ub),NaN*zeros(self.problem.size,self.options.num_iterations_max-1)];
+                fval=NaN*zeros(self.options.num_iterations_max+1,1);
+                fval(1)=self.problem.objective(x(:,1));
                 direction=1;
                 while iter<self.options.num_iterations_max && norm(direction)>10^-6 && norm(x(:,iter)-x_previous)>10^-6
                     x_previous=x(:,iter);
@@ -99,8 +111,10 @@ classdef solverHMIP
                         direction=-(1-self.problem.binary_index).*gradient;
                         x(:,iter+1)=self.projected_gradient_update(x(:,iter),direction,self.problem.step_size_smoothness);
                     end
-                    iter=iter+1;
+                    iter=iter+1; 
+                    fval(iter)=self.problem.objective(x(:,iter));
                 end
+                self=binary_cv(self,x(:,iter-1));
             end
         end
         
@@ -358,25 +372,8 @@ classdef solverHMIP
                 dual_vals=fmincon(fun,zeros(3*n+n_eq+n_ineq,1),[],[],Ae,be,lower,upper,[],options_fmincon);
                 dual_val_eq=dual_vals(n+1:n+n_eq);
                 dual_val_ineq=dual_vals(n+n_eq+1:n+n_eq+n_ineq);
-                
-                %cvx_begin quiet
-                %variable dual_val_eq(n_eq)
-                %variable dual_val_ineq(n_ineq)
-                %variable mu_1(n)
-                %variable mu_2(n)
-                %variable s(n)
-                %minimize(norm(s))
-                %mu_1>=0
-                %mu_2>=0
-                %dual_val_ineq>=0
-                %grad+mu_2-mu_1+A'*dual_val_ineq+Aeq'*dual_val_eq==s
-                %dual_val_ineq'*(A*x-b)==0
-                %mu_1'*(lb.*ones(n,1)-x)==0
-                %mu_2'*(ub.*ones(n,1)-x)==0
-                %cvx_end
-                %disp('This is the norm of s')
-                %disp(norm(s))
             end
+            
             function [f,g]= local_func_1(z,n)
                 f=0.5*norm(z(1:n),2)^2;
                 if nargout==2
@@ -423,6 +420,15 @@ classdef solverHMIP
                 g=self.problem.gradient(x)+penalty_ineq*A'*max(0,A*x-b)+penalty_eq*Aeq'*(Aeq*x-beq);
             end
         end
+        
+        function self=binary_cv(self,x)
+            z=x.*self.problem.binary_index;
+            out=sum(z.*(1-z));
+            out=out/sum(self.problem.binary_index);
+            disp(out)
+            self.performance.binary_cv=out;
+        end
+        
 
     end
     
