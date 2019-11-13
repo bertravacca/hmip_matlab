@@ -25,15 +25,16 @@ z=(1-binary_indicator).*rand(n,1)+binary_indicator.*(rand(n,1)>0.5);
 beq=Aeq*z;
 b=A*z+10^-3*rand(m_ineq,1);
 lb=0;
-ub=1;
+ub=2;
 
 % use hmip solver
 objective=@(x) 0.5*x'*Q*x+q'*x;
 gradient=@(x) Q*x+q;
 problem=problemHMIP('objective',objective,'gradient',gradient,'size',n,'binary_index',binary_indicator,'lb',lb,'ub',ub);
-options=OptionsHMIP('num_iterations_max',1000,'keep_hopfield_trajectory',1,'activation_type','pwl','direction_method','gradient');
+options=OptionsHMIP('num_iterations_max',10^3,'keep_hopfield_trajectory',1,'activation_type','pwl','direction_method','gradient');
 solver=solverHMIP('problem',problem,'options',options);
-[x_h,x,fval,solver]=solver.main_hopfield;
+solution=solver.main_hopfield;
+semilogx(solution.fval,'b')
 %x=quadprog(Q,q,A,b,Aeq,beq,zeros(n,1),ones(n,1));
 
 

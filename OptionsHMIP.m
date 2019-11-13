@@ -7,7 +7,7 @@ classdef OptionsHMIP
         beta
         theta=pi/2-0.1
         gamma=0.9
-        num_iterations_max=1000
+        num_iterations_max=10^4
         stopping_criterion
         precision_stopping_criterion
         initial_ascent_method='binary_neutral_ascent'

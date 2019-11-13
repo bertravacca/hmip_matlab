@@ -4,7 +4,6 @@ classdef solverHMIP
         funcs
         problem
         visualize
-        performance
     end
     
     methods
@@ -42,7 +41,7 @@ classdef solverHMIP
                 self.funcs.beta=1;
                 self.options.beta=1;
             else
-                self.options.beta=10*self.problem.binary_index+(1-self.problem.binary_index);
+                self.options.beta=10^2*self.problem.binary_index+(1-self.problem.binary_index);
                 self.funcs.beta=self.options.beta;
             end
 
@@ -64,12 +63,12 @@ classdef solverHMIP
             if length(self.problem.ub)==1
                 self.problem.ub=self.problem.ub*ones(self.problem.size,1);
             end
-            
-            self.performance=struct('binary_cv',0);
+          
         end
         
         % main hopfield update
-        function [x_h,x,fval,self]=main_hopfield(self)
+        function out=main_hopfield(self)
+            out.perf=struct('binary_cv',0);
             if self.options.keep_hopfield_trajectory==0
                 iter=1;
                 x=self.initialization;
@@ -89,7 +88,7 @@ classdef solverHMIP
                     end
                     iter=iter+1;
                 end
-                self=binary_cv(self,x);
+                perf.binary_cv=self.funcs.binary_cv(x,self.problem.binary_index);
                 fval=self.problem.objective(x);
             elseif self.options.keep_hopfield_trajectory==1
                 iter=1;
@@ -114,8 +113,10 @@ classdef solverHMIP
                     iter=iter+1; 
                     fval(iter)=self.problem.objective(x(:,iter));
                 end
-                self=binary_cv(self,x(:,iter-1));
+                perf.binary_cv=self.funcs.binary_cv(x(:,iter-1),self.problem.binary_index);
             end
+            
+            out.x=x; out.x_h=x_h ; out.fval=fval; out.performance=perf;
         end
         
         % hopfield update
@@ -420,15 +421,7 @@ classdef solverHMIP
                 g=self.problem.gradient(x)+penalty_ineq*A'*max(0,A*x-b)+penalty_eq*Aeq'*(Aeq*x-beq);
             end
         end
-        
-        function self=binary_cv(self,x)
-            z=x.*self.problem.binary_index;
-            out=sum(z.*(1-z));
-            out=out/sum(self.problem.binary_index);
-            disp(out)
-            self.performance.binary_cv=out;
-        end
-        
+          
 
     end
     

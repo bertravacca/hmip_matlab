@@ -153,5 +153,11 @@ classdef functionsHMIP
             end
         end
         
+        function out=binary_cv(x,binary_index)
+            z=x.*binary_index;
+            out=sum(min(abs(z),abs(1-z)));
+            out=out/sum(binary_index);
+        end
+        
     end
 end
