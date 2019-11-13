@@ -1,9 +1,11 @@
+addpath('/Applications/CPLEX_Studio128/cplex/matlab/x86-64_osx/')
+clear all; close all;
 % addpath to solver
 str=strsplit(pwd,'/');
 addpath(char(join(str(1:length(str)-1),'/')));
 
 % define problem parameters at random
-n=1000;
+n=20;
 beta=0.4;
 Z=rand(n,1);
 binary_indicator=ones(n,1).*(Z<=beta); clear Z;
@@ -25,16 +27,42 @@ z=(1-binary_indicator).*rand(n,1)+binary_indicator.*(rand(n,1)>0.5);
 beq=Aeq*z;
 b=A*z+10^-3*rand(m_ineq,1);
 lb=0;
-ub=2;
+ub=1;
+
+% create ctype string for cplex
+for k=1:n
+    if binary_indicator(k)==1
+        ctype(k)='B';
+    else
+        ctype(k)='C';
+    end
+end
+
 
 % use hmip solver
 objective=@(x) 0.5*x'*Q*x+q'*x;
 gradient=@(x) Q*x+q;
 problem=problemHMIP('objective',objective,'gradient',gradient,'size',n,'binary_index',binary_indicator,'lb',lb,'ub',ub);
-options=OptionsHMIP('num_iterations_max',10^3,'keep_hopfield_trajectory',1,'activation_type','pwl','direction_method','gradient');
+options=OptionsHMIP('num_iterations_max',10^3,'keep_hopfield_trajectory',1,'activation_type','pwl','direction_method','binary');
 solver=solverHMIP('problem',problem,'options',options);
-solution=solver.main_hopfield;
-semilogx(solution.fval,'b')
-%x=quadprog(Q,q,A,b,Aeq,beq,zeros(n,1),ones(n,1));
+solver=solver.main_hopfield;
+[x,fval_pgd,step_size]=solver.projected_gradient_descent;
+[x_qp,fval_qp]=quadprog(Q,q,[],[],[],[],lb*ones(n,1),ub*ones(n,1));
+options = cplexoptimset('optimalitytarget', 1);
+[x,fval]=cplexmiqp(Q, q, [], [], [], [],[], [], [], lb*ones(n,1), ub*ones(n,1), ctype, [],options);
+
+figure(1)
+semilogx(solver.fval,'b')
+hold on
+semilogx(fval_pgd,'r')
+semilogx(fval_qp*ones(max(length(solver.fval),length(fval_pgd)),1),'r--')
+semilogx(fval*ones(max(length(solver.fval),length(fval_pgd)),1),'b--')
+hold off
+
+%figure(2)
+%semilogx(100*solver.step_size,'b')
+%hold on
+%semilogx(step_size,'r')
+
 
 

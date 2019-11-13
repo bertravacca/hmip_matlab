@@ -4,6 +4,11 @@ classdef solverHMIP
         funcs
         problem
         visualize
+        optim_var
+        hidden_var
+        fval
+        performance
+        step_size
     end
     
     methods
@@ -67,7 +72,7 @@ classdef solverHMIP
         end
         
         % main hopfield update
-        function out=main_hopfield(self)
+        function self=main_hopfield(self)
             out.perf=struct('binary_cv',0);
             if self.options.keep_hopfield_trajectory==0
                 iter=1;
@@ -89,14 +94,15 @@ classdef solverHMIP
                     iter=iter+1;
                 end
                 perf.binary_cv=self.funcs.binary_cv(x,self.problem.binary_index);
-                fval=self.problem.objective(x);
+                self.fval=self.problem.objective(x);
             elseif self.options.keep_hopfield_trajectory==1
                 iter=1;
                 x=[self.initialization,NaN*zeros(self.problem.size,self.options.num_iterations_max-1)];
                 x_previous=x(:,1)+1;
                 x_h=[self.funcs.inverse_activation(x,self.problem.lb,self.problem.ub),NaN*zeros(self.problem.size,self.options.num_iterations_max-1)];
-                fval=NaN*zeros(self.options.num_iterations_max+1,1);
-                fval(1)=self.problem.objective(x(:,1));
+                self.fval=NaN*zeros(self.options.num_iterations_max+1,1);
+                self.fval(1)=self.problem.objective(x(:,1));
+                self.step_size=NaN*zeros(self.options.num_iterations_max,1);
                 direction=1;
                 while iter<self.options.num_iterations_max && norm(direction)>10^-6 && norm(x(:,iter)-x_previous)>10^-6
                     x_previous=x(:,iter);
@@ -104,19 +110,54 @@ classdef solverHMIP
                     binary_convergence=self.binary_convergence_test(x(:,iter));
                     if binary_convergence~=0
                         direction=self.get_direction(x(:,iter),gradient);
-                        step=self.get_step_size(x(:,iter), direction, gradient);
+                        step=10*self.get_step_size(x(:,iter), direction, gradient);
+                        self.step_size(iter)=step;
                         [x_h(:,iter+1),x(:,iter+1)]=hopfield_update(self,x_h(:,iter),direction,step);
                     else
                         direction=-(1-self.problem.binary_index).*gradient;
                         x(:,iter+1)=self.projected_gradient_update(x(:,iter),direction,self.problem.step_size_smoothness);
                     end
-                    iter=iter+1; 
-                    fval(iter)=self.problem.objective(x(:,iter));
+                    iter=iter+1;
+                    self.fval(iter)=self.problem.objective(x(:,iter));
                 end
                 perf.binary_cv=self.funcs.binary_cv(x(:,iter-1),self.problem.binary_index);
             end
             
-            out.x=x; out.x_h=x_h ; out.fval=fval; out.performance=perf;
+            self.optim_var=x; self.hidden_var=x_h ; self.performance=perf;
+        end
+        
+        % projected gradient descent
+        function [x,fval,step_size]=projected_gradient_descent(self)
+            if self.options.keep_hopfield_trajectory==0
+                iter=1;
+                x=self.initialization;
+                x_previous=x+1;
+                gradient=1;
+              
+                while iter<self.options.num_iterations_max && norm(gradient)>10^-6 && norm(x-x_previous)>10^-6
+                    x_previous=x;
+                    gradient=self.problem.gradient(x);
+                    x=self.projected_gradient_update(x,gradient,self.problem.step_size_smoothness);
+                    iter=iter+1;
+                end
+                fval=self.problem.objective(x);
+            elseif self.options.keep_hopfield_trajectory==1
+                x=[self.initialization,NaN*zeros(self.problem.size,self.options.num_iterations_max-1)];
+                x_previous=x(:,1)+1;
+                fval=NaN*zeros(self.options.num_iterations_max+1,1);
+                fval(1)=self.problem.objective(x(:,1));
+                step_size=NaN*zeros(self.options.num_iterations_max,1);
+                gradient=1;
+                iter=1;
+                while iter<self.options.num_iterations_max && norm(gradient)>10^-6 && norm(x(:,iter)-x_previous)>10^-6
+                    x_previous=x(:,iter);
+                    gradient=self.problem.gradient(x(:,iter));
+                    x(:,iter+1)=self.projected_gradient_update(x(:,iter),-gradient,self.problem.step_size_smoothness);
+                    iter=iter+1;
+                    fval(iter)=self.problem.objective(x(:,iter));
+                    step_size(iter)=norm(gradient)*self.problem.step_size_smoothness;
+                end
+            end
         end
         
         % hopfield update
