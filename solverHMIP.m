@@ -131,9 +131,14 @@ classdef solverHMIP
                 x_previous=x+1;
                 gradient=1;
                 while iter<self.options.num_iterations_max && norm(gradient)>10^-6 && norm(x-x_previous)>10^-6
+                    fval=self.problem.objective(x);
                     x_previous=x;
                     gradient=self.problem.gradient(x);
-                    [x_h,x]=self.brute_force_hopfield_update(x_h,-gradient,self.problem.step_size_smoothness/iter);
+                    [x_h_tmp,x_tmp]=self.brute_force_hopfield_update(x_h,-gradient,self.problem.step_size_smoothness/iter);
+                    if self.problem.objective(x_tmp)<fval
+                        x_h=x_h_tmp;
+                        x=x_tmp;
+                    end
                     iter=iter+1;
                 end
                 fval=self.problem.objective(x);
@@ -149,9 +154,19 @@ classdef solverHMIP
                 while iter<self.options.num_iterations_max && norm(gradient)>10^-6 && norm(x(:,iter)-x_previous)>10^-6
                     x_previous=x(:,iter);
                     gradient=self.problem.gradient(x(:,iter));
-                    [x_h(:,iter+1),x(:,iter+1)]=self.brute_force_hopfield_update(x_h(:,iter),-gradient,self.problem.step_size_smoothness/iter);
+                    [x_h_tmp,x_tmp]=self.brute_force_hopfield_update(x_h(:,iter),-gradient,self.problem.step_size_smoothness/iter);
+                    fval_tmp=self.problem.objective(x_tmp);
+                    if fval_tmp<fval(iter)
+                        x(:,iter+1)=x_tmp;
+                        x_h(:,iter+1)=x_h_tmp;
+                        fval(iter+1)= fval_tmp;
+                    else
+                        x(:,iter+1)=x(:,iter-1);
+                        x_h(:,iter+1)=x_h(:,iter-1);
+                        fval(iter+1)=fval(iter);
+                    end
+                    
                     iter=iter+1;
-                    fval(iter)=self.problem.objective(x(:,iter));
                     step_size(iter)=norm(gradient)*self.problem.step_size_smoothness;
                 end
             end
