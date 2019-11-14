@@ -62,9 +62,8 @@ classdef OptionsHMIP
                     possibilities=strjoin(poss_initial_ascent_method,', ');
                     error(['Please check that your property specifictions are correct for initial_ascent_method Possible specifications include: ', possibilities])
             end
-            
-
-            
+          
+             
         end
     end
 end

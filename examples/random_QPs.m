@@ -14,9 +14,11 @@ ub=1;
 objective=@(x) 0.5*x'*Q*x+q'*x;
 gradient=@(x) Q*x+q;
 problem=problemHMIP('objective',objective,'gradient',gradient,'size',n,'binary_index',binary_indicator,'lb',lb,'ub',ub);
-options=OptionsHMIP('num_iterations_max',10^3,'keep_hopfield_trajectory',1,'activation_type','pwl','direction_method','binary');
+options=OptionsHMIP('num_iterations_max',10^3,'keep_hopfield_trajectory',1,'activation_type','pwl','direction_method','gradient');
 solver=solverHMIP('problem',problem,'options',options);
 solver=solver.main_hopfield;
+% brute force hopfield
+[x_bf,fval_bf,step_size_bf]=solver.brute_force_hopfield;
 % projected gradient descent
 [x_pgd,fval_pgd,step_size_pgd]=solver.projected_gradient_descent;
 % quadprog
@@ -35,6 +37,7 @@ end
 % plot fval for the different methods
 figure(1)
 semilogx(solver.fval,'b')
+semilogx(fval_bf,'g')
 hold on
 semilogx(fval_pgd,'r')
 semilogx(fval_qp*ones(max(length(solver.fval),length(fval_pgd)),1),'r--')

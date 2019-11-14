@@ -13,7 +13,6 @@ classdef solverHMIP
     
     methods
         function self=solverHMIP(varargin)
-            tic
             possProperties_problem = {'problem','options'};
             k=1;
             while k<nargin
@@ -68,12 +67,10 @@ classdef solverHMIP
             if length(self.problem.ub)==1
                 self.problem.ub=self.problem.ub*ones(self.problem.size,1);
             end
-          
         end
         
         % main hopfield update
         function self=main_hopfield(self)
-            out.perf=struct('binary_cv',0);
             if self.options.keep_hopfield_trajectory==0
                 iter=1;
                 x=self.initialization;
@@ -110,7 +107,7 @@ classdef solverHMIP
                     binary_convergence=self.binary_convergence_test(x(:,iter));
                     if binary_convergence~=0
                         direction=self.get_direction(x(:,iter),gradient);
-                        step=10*self.get_step_size(x(:,iter), direction, gradient);
+                        step=100*self.get_step_size(x(:,iter), direction, gradient);
                         self.step_size(iter)=step;
                         [x_h(:,iter+1),x(:,iter+1)]=hopfield_update(self,x_h(:,iter),direction,step);
                     else
@@ -122,8 +119,42 @@ classdef solverHMIP
                 end
                 perf.binary_cv=self.funcs.binary_cv(x(:,iter-1),self.problem.binary_index);
             end
-            
             self.optim_var=x; self.hidden_var=x_h ; self.performance=perf;
+        end
+        
+        % 'brute force' hopfield
+        function [x,fval,step_size]=brute_force_hopfield(self)
+            if self.options.keep_hopfield_trajectory==0
+                iter=1;
+                x=self.initialization;
+                x_h=x;
+                x_previous=x+1;
+                gradient=1;
+                while iter<self.options.num_iterations_max && norm(gradient)>10^-6 && norm(x-x_previous)>10^-6
+                    x_previous=x;
+                    gradient=self.problem.gradient(x);
+                    [x_h,x]=self.brute_force_hopfield_update(x_h,-gradient,self.problem.step_size_smoothness/iter);
+                    iter=iter+1;
+                end
+                fval=self.problem.objective(x);
+            elseif self.options.keep_hopfield_trajectory==1
+                x=[self.initialization,NaN*zeros(self.problem.size,self.options.num_iterations_max-1)];
+                x_h=[x(:,1),NaN*zeros(self.problem.size,self.options.num_iterations_max-1)];
+                x_previous=x(:,1)+1;
+                fval=NaN*zeros(self.options.num_iterations_max+1,1);
+                fval(1)=self.problem.objective(x(:,1));
+                step_size=NaN*zeros(self.options.num_iterations_max,1);
+                gradient=1;
+                iter=1;
+                while iter<self.options.num_iterations_max && norm(gradient)>10^-6 && norm(x(:,iter)-x_previous)>10^-6
+                    x_previous=x(:,iter);
+                    gradient=self.problem.gradient(x(:,iter));
+                    [x_h(:,iter+1),x(:,iter+1)]=self.brute_force_hopfield_update(x_h(:,iter),-gradient,self.problem.step_size_smoothness/iter);
+                    iter=iter+1;
+                    fval(iter)=self.problem.objective(x(:,iter));
+                    step_size(iter)=norm(gradient)*self.problem.step_size_smoothness;
+                end
+            end
         end
         
         % projected gradient descent
@@ -170,6 +201,13 @@ classdef solverHMIP
         function x=projected_gradient_update(self,x,direction,step)
             x=x+step*direction;
             x=self.funcs.box_projection(x,self.problem.lb,self.problem.ub);
+        end
+        
+        % brute force hopfield update
+        function [x_h,x]=brute_force_hopfield_update(self,x_h,direction,step)
+            x_h=x_h+step*direction;
+            act_binary=0.5*(self.problem.ub-self.problem.lb).*(sign(x_h-0.5*(self.problem.ub+self.problem.lb))+1)+self.problem.lb;
+            x=self.problem.binary_index.*act_binary+(1-self.problem.binary_index).*self.funcs.activation(x_h,self.problem.lb,self.problem.ub);
         end
         
         % compute gradient
