@@ -5,7 +5,7 @@ str=strsplit(pwd,'/');
 addpath(char(join(str(1:length(str)-1),'/')));
 
 % define problem parameters at random
-n = 30;
+n = 20;
 [binary_indicator,Q,q]=random_qp_parameters('no_constraints',n,0.4);
 lb=0;
 ub=1;
