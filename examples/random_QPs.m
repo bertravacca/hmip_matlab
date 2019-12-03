@@ -5,7 +5,7 @@ str=strsplit(pwd,'/');
 addpath(char(join(str(1:length(str)-1),'/')));
 
 % define problem parameters at random
-n=20;
+n = 30;
 [binary_indicator,Q,q]=random_qp_parameters('no_constraints',n,0.4);
 lb=0;
 ub=1;
@@ -14,7 +14,7 @@ ub=1;
 objective=@(x) 0.5*x'*Q*x+q'*x;
 gradient=@(x) Q*x+q;
 problem=problemHMIP('objective',objective,'gradient',gradient,'size',n,'binary_index',binary_indicator,'lb',lb,'ub',ub);
-options=OptionsHMIP('num_iterations_max',10^3,'keep_hopfield_trajectory',1,'activation_type','pwl','direction_method','gradient');
+options=OptionsHMIP('num_iterations_max',10^4,'keep_hopfield_trajectory',1,'activation_type','tanh','direction_method','binary');
 solver=solverHMIP('problem',problem,'options',options);
 solver=solver.main_hopfield;
 % brute force hopfield
@@ -37,8 +37,11 @@ end
 % plot fval for the different methods
 figure(1)
 semilogx(solver.fval,'b')
-semilogx(fval_bf,'g')
 hold on
+if isnan(solver.performance.transition_iter) == 0
+    xline(solver.performance.transition_iter, 'b--')
+end
+semilogx(fval_bf,'g')
 semilogx(fval_pgd,'r')
 semilogx(fval_qp*ones(max(length(solver.fval),length(fval_pgd)),1),'r--')
 semilogx(fval_cplx*ones(max(length(solver.fval),length(fval_pgd)),1),'b--')

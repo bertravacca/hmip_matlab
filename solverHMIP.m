@@ -101,17 +101,21 @@ classdef solverHMIP
                 self.fval(1)=self.problem.objective(x(:,1));
                 self.step_size=NaN*zeros(self.options.num_iterations_max,1);
                 direction=1;
+                perf.transition_iter = NaN;
                 while iter<self.options.num_iterations_max && norm(direction)>10^-6 && norm(x(:,iter)-x_previous)>10^-6
                     x_previous=x(:,iter);
                     gradient=self.compute_gradient(x(:,iter));
                     binary_convergence=self.binary_convergence_test(x(:,iter));
                     if binary_convergence~=0
-                        direction=self.get_direction(x(:,iter),gradient);
-                        step=100*self.get_step_size(x(:,iter), direction, gradient);
-                        self.step_size(iter)=step;
-                        [x_h(:,iter+1),x(:,iter+1)]=hopfield_update(self,x_h(:,iter),direction,step);
+                        direction = self.get_direction(x(:,iter),gradient);
+                        step = self.get_step_size(x(:,iter), direction, gradient);
+                        self.step_size(iter) = step;
+                        [x_h(:,iter+1),x(:,iter+1)] = hopfield_update(self,x_h(:,iter),direction,step);
                     else
-                        direction=-(1-self.problem.binary_index).*gradient;
+                        if isnan(perf.transition_iter)
+                            perf.transition_iter = iter;
+                        end
+                        direction = - (1 - self.problem.binary_index).*gradient;
                         x(:,iter+1)=self.projected_gradient_update(x(:,iter),direction,self.problem.step_size_smoothness);
                     end
                     iter=iter+1;
@@ -477,7 +481,7 @@ classdef solverHMIP
             end
         end
         
-        %%
+        % dual function
         function [x,Lagrange_val]=dual_function(self,dual_val_ineq,dual_val_eq)
             n=self.problem.size;
             lb=self.problem.lb;
@@ -520,6 +524,7 @@ classdef solverHMIP
     end
     
     methods(Static)
+        % outputs vector of random sign
         function out=sign_rnd(x)
             out=sign(x);
             out=out+(out==0).*sign(rand(size(x))-0.5);
